@@ -30,6 +30,7 @@ BUILTIN_DATA_TYPE_ALIASES: Dict[str, str] = {
 
 MODIFIER_DATA_TYPE: List[str] = [
     "list", "dict", "set", "tuple",
+    "listlist",
     "Generic", "typing.Iterator"
 ]
 
@@ -229,6 +230,8 @@ class BuiltinDataType(DataType):
                     return "{}['{}', {}]".format(self._modifier.to_string(),
                                                  self._modifier_add_info["dict_key"],
                                                  self._data_type)
+        elif self._modifier.modifier_data_type() == "listlist":
+            return f"typing.List[typing.List[{self._data_type}]]"
 
         return "{}[{}]".format(self._modifier.to_string(), self._data_type)
 
@@ -309,6 +312,8 @@ class CustomDataType(DataType):
                     return "{}['{}', '{}']".format(self._modifier.to_string(),
                                                    self._modifier_add_info["dict_key"],
                                                    self._data_type)
+        elif self._modifier.modifier_data_type() == "listlist":
+            return f"typing.List[typing.List['{self._data_type}']]"
 
         return "{}['{}']".format(self._modifier.to_string(),
                                  self._data_type)
@@ -1254,7 +1259,7 @@ class DataTypeRefiner:
         # Ex: float multi-dimensional array of 3 * 3 items in [-inf, inf]
         m = re.match(r"^float multi-dimensional array of ([0-9]) \* ([0-9]) items in \[([-einf+0-9,. ]+)\](, .+)*$", dtype_str)
         if m:
-            return BuiltinDataType("float", ModifierDataType("list"))   # TODO: use list[list[...]
+            return BuiltinDataType("float", ModifierDataType("listlist"))
         m = re.match(r"^double$", dtype_str)
         if m:
             return BuiltinDataType("float")
