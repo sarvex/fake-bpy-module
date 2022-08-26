@@ -1238,9 +1238,17 @@ class DataTypeRefiner:
             return BuiltinDataType("bytes")
 
         # Ex: int array of 2 items in [-32768, 32767], default (0, 0)
-        m = re.match(r"^(int|float) array of ([0-9]+) items in \[([-einf+0-9,. ]+)\](, .+)*$", dtype_str)
+        m = re.match(r"^int array of ([0-9]+) items in \[([-einf+0-9,. ]+)\](, .+)*$", dtype_str)
         if m:
-            return BuiltinDataType(m.group(1), ModifierDataType("list"))
+            return BuiltinDataType("int", ModifierDataType("list"))
+        m = re.match(r"^float array of ([0-9]+) items in \[([-einf+0-9,. ]+)\](, .+)*$", dtype_str)
+        if m:
+            s = self._parse_custom_data_type("mathutils.Vector", uniq_full_names, uniq_module_names, module_name)
+            dtypes = [
+                BuiltinDataType("float", ModifierDataType("list")),
+                CustomDataType(s)
+            ]
+            return MixinDataType(dtypes)
         # Ex: float triplet
         m = re.match(r"^float triplet$", dtype_str)
         if m:
@@ -1259,7 +1267,12 @@ class DataTypeRefiner:
         # Ex: float multi-dimensional array of 3 * 3 items in [-inf, inf]
         m = re.match(r"^float multi-dimensional array of ([0-9]) \* ([0-9]) items in \[([-einf+0-9,. ]+)\](, .+)*$", dtype_str)
         if m:
-            return BuiltinDataType("float", ModifierDataType("listlist"))
+            s = self._parse_custom_data_type("mathutils.Matrix", uniq_full_names, uniq_module_names, module_name)
+            dtypes = [
+                BuiltinDataType("float", ModifierDataType("listlist")),
+                CustomDataType(s)
+            ]
+            return MixinDataType(dtypes)
         m = re.match(r"^double$", dtype_str)
         if m:
             return BuiltinDataType("float")
