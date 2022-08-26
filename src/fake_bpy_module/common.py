@@ -30,7 +30,7 @@ BUILTIN_DATA_TYPE_ALIASES: Dict[str, str] = {
 
 MODIFIER_DATA_TYPE: List[str] = [
     "list", "dict", "set", "tuple",
-    "listlist",
+    "listlist", "tupletuple",
     "Generic", "typing.Iterator"
 ]
 
@@ -230,6 +230,15 @@ class BuiltinDataType(DataType):
                     return "{}['{}', {}]".format(self._modifier.to_string(),
                                                  self._modifier_add_info["dict_key"],
                                                  self._data_type)
+        elif self._modifier.modifier_data_type() == "tuple":
+            if self._modifier_add_info is not None:
+                return "{}[{}]".format(self._modifier.to_string(), ", ".join(self._modifier_add_info["tuple_elms"]))
+        elif self._modifier.modifier_data_type() == "tupletuple":
+            if self._modifier_add_info is not None:
+                inner_str = []
+                for elms in self._modifier_add_info["tuple_elms"]:
+                    inner_str.append("typing.Tuple[{}]".format(", ".join(elms)))
+                return "typing.Tuple[{}]".format(", ".join(inner_str))
         elif self._modifier.modifier_data_type() == "listlist":
             return f"typing.List[typing.List[{self._data_type}]]"
 
@@ -1246,6 +1255,7 @@ class DataTypeRefiner:
             s = self._parse_custom_data_type("mathutils.Vector", uniq_full_names, uniq_module_names, module_name)
             dtypes = [
                 BuiltinDataType("float", ModifierDataType("list")),
+                BuiltinDataType("float", ModifierDataType("tuple"), modifier_add_info={"tuple_elms": ["float"] * int(m.group(1))}),
                 CustomDataType(s)
             ]
             return MixinDataType(dtypes)
@@ -1270,6 +1280,9 @@ class DataTypeRefiner:
             s = self._parse_custom_data_type("mathutils.Matrix", uniq_full_names, uniq_module_names, module_name)
             dtypes = [
                 BuiltinDataType("float", ModifierDataType("listlist")),
+                BuiltinDataType("float", ModifierDataType("tupletuple"), modifier_add_info={
+                    "tuple_elms": [["float"] * int(m.group(1))] * int(m.group(2))
+                }),
                 CustomDataType(s)
             ]
             return MixinDataType(dtypes)
