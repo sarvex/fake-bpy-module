@@ -16,7 +16,7 @@ if "RELEASE_VERSION" in os.environ:
 else:
     print("Environment variable 'RELEASE_VERSION' does not exist, "
           "so use date as release version")
-    release_version = datetime.datetime.today().strftime("%Y%m%d")
+    release_version = datetime.datetime.now().strftime("%Y%m%d")
 
 # long_description
 try:

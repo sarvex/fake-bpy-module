@@ -855,9 +855,7 @@ class PackageGeneratorTest(common.FakeBpyModuleTestBase):
         shutil.rmtree(self.output_base_dir)
 
     def __is_py_typed_exist(self, filepath: str) -> bool:
-        if not os.path.isfile(filepath):
-            return False
-        return os.path.getsize(filepath) == 0
+        return os.path.getsize(filepath) == 0 if os.path.isfile(filepath) else False
 
     def test_single_rules(self):
         rule_rst_files = [

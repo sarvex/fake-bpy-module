@@ -97,16 +97,18 @@ def has_data_type(str_: str, data_type: str) -> bool:
         if (si == start_index) and (ei == end_index):
             return True
         # example: "int or float"
-        if (si == start_index) and \
-                ((ei != end_index) and (str_[ei] in ALLOWED_CHAR_AFTER)):
+        if si == start_index and str_[ei] in ALLOWED_CHAR_AFTER:
             return True
         # example: "list of int"
         if ((si != start_index) and (str_[si-1] in ALLOWED_CHAR_BEFORE)) and \
                 (ei == end_index):
             return True
         # example: "list of int or float"
-        if ((si != start_index) and (str_[si-1] in ALLOWED_CHAR_BEFORE)) and \
-                ((ei != end_index) and (str_[ei] in ALLOWED_CHAR_AFTER)):
+        if (
+            si != start_index
+            and str_[si - 1] in ALLOWED_CHAR_BEFORE
+            and str_[ei] in ALLOWED_CHAR_AFTER
+        ):
             return True
 
     return False
@@ -268,27 +270,28 @@ class BuiltinDataType(DataType):
             if self._modifier_add_info is not None:
                 if self._modifier_add_info["dict_key"] in BUILTIN_DATA_TYPE:
                     return f"{self._modifier.to_string()}[" \
-                        f"{self._modifier_add_info['dict_key']}, " \
-                        f"{self._data_type}]"
+                            f"{self._modifier_add_info['dict_key']}, " \
+                            f"{self._data_type}]"
                 return f"{self._modifier.to_string()}[" \
-                    f"'{self._modifier_add_info['dict_key']}', " \
-                    f"{self._data_type}]"
+                        f"'{self._modifier_add_info['dict_key']}', " \
+                        f"{self._data_type}]"
         elif self._modifier.modifier_data_type() == "tuple":
             if self._modifier_add_info is not None:
                 return f"{self._modifier.to_string()}[" \
-                    f"{', '.join(self._modifier_add_info['tuple_elms'])}]"
+                        f"{', '.join(self._modifier_add_info['tuple_elms'])}]"
         elif self._modifier.modifier_data_type() == "tupletuple":
             if self._modifier_add_info is not None:
-                inner_str = []
-                for elms in self._modifier_add_info["tuple_elms"]:
-                    inner_str.append(f"typing.Tuple[{', '.join(elms)}]")
+                inner_str = [
+                    f"typing.Tuple[{', '.join(elms)}]"
+                    for elms in self._modifier_add_info["tuple_elms"]
+                ]
                 return f"typing.Tuple[{', '.join(inner_str)}]"
         elif self._modifier.modifier_data_type() == "listlist":
             return f"typing.List[typing.List[{self._data_type}]]"
         elif self._modifier.modifier_data_type() == 'listtuple':
             if self._modifier_add_info is not None:
                 return "typing.List[typing.Tuple[" \
-                    f"{', '.join(self._modifier_add_info['tuple_elms'])}]]"
+                        f"{', '.join(self._modifier_add_info['tuple_elms'])}]]"
 
         return f"{self._modifier.to_string()}[{self._data_type}]"
 
@@ -463,36 +466,18 @@ class Info:
         self._type: str = None
 
     def is_assignable(self, variable, data: dict, key: str, method: str):
-        if method == 'NEW':
-            if key in data:
-                return True
-            return False
         if method == 'APPEND':
-            if (key in data) and (variable is None):
-                return True
-            return False
-        if method == 'UPDATE':
-            if key in data:
-                return True
-            return False
-
+            return key in data and variable is None
+        elif method in {'NEW', 'UPDATE'}:
+            return key in data
         raise RuntimeError(f"Unsupported method: {method}")
 
     def is_data_type_assinable(
             self, variable, data: dict, key: str, method: str):
-        if method == 'NEW':
-            if key in data:
-                return True
-            return False
         if method == 'APPEND':
-            if (key in data) and isinstance(variable, UnknownDataType):
-                return True
-            return False
-        if method == 'UPDATE':
-            if key in data:
-                return True
-            return False
-
+            return key in data and isinstance(variable, UnknownDataType)
+        elif method in {'NEW', 'UPDATE'}:
+            return key in data
         raise RuntimeError(f"Unsupported method: {method}")
 
     def name(self) -> str:
@@ -561,9 +546,6 @@ class ParameterDetailInfo(Info):
                 "description": remove_unencodable(self._description),
                 "data_type": remove_unencodable(self._data_type.to_string()),
             }
-            default_value = self._data_type.get_metadata().default_value
-            if default_value is not None:
-                data["default_value"] = remove_unencodable(default_value)
         else:
             data = {
                 "type": self._type,
@@ -571,10 +553,9 @@ class ParameterDetailInfo(Info):
                 "description": self._description,
                 "data_type": self._data_type.to_string(),
             }
-            default_value = self._data_type.get_metadata().default_value
-            if default_value is not None:
-                data["default_value"] = remove_unencodable(default_value)
-
+        default_value = self._data_type.get_metadata().default_value
+        if default_value is not None:
+            data["default_value"] = remove_unencodable(default_value)
         return data
 
     def from_dict(self, data: dict, method: str = 'NONE'):
@@ -627,20 +608,19 @@ class ReturnInfo(Info):
         if self._description is None:
             self._description = ""
 
-        if check_os() == "Windows":
-            data = {
+        return (
+            {
                 "type": self._type,
                 "description": remove_unencodable(self._description),
                 "data_type": remove_unencodable(self._data_type.to_string()),
             }
-        else:
-            data = {
+            if check_os() == "Windows"
+            else {
                 "type": self._type,
                 "description": self._description,
                 "data_type": self._data_type.to_string(),
             }
-
-        return data
+        )
 
     def from_dict(self, data: dict, method: str = 'NONE'):
         if "type" not in data:
@@ -717,8 +697,8 @@ class VariableInfo(Info):
         if self._module is None:
             self._module = ""
 
-        if check_os() == "Windows":
-            data = {
+        return (
+            {
                 "type": self._type,
                 "name": remove_unencodable(self._name),
                 "description": remove_unencodable(self._description),
@@ -726,8 +706,8 @@ class VariableInfo(Info):
                 "module": remove_unencodable(self._module),
                 "data_type": remove_unencodable(self._data_type.to_string()),
             }
-        else:
-            data = {
+            if check_os() == "Windows"
+            else {
                 "type": self._type,
                 "name": self._name,
                 "description": self._description,
@@ -735,8 +715,7 @@ class VariableInfo(Info):
                 "module": self._module,
                 "data_type": self._data_type.to_string(),
             }
-
-        return data
+        )
 
     def from_dict(self, data: dict, method: str = 'NONE'):
         if "type" not in data:
@@ -896,8 +875,8 @@ class FunctionInfo(Info):
         except ValueError:
             pass
 
-        if check_os() == "Windows":
-            data = {
+        return (
+            {
                 "type": self._type,
                 "name": remove_unencodable(self._name),
                 "description": remove_unencodable(self._description),
@@ -905,11 +884,12 @@ class FunctionInfo(Info):
                 "class": remove_unencodable(self._class),
                 "module": remove_unencodable(self._module),
                 "parameters": list(self._parameters),
-                "parameter_details": [p.to_dict()
-                                      for p in self._parameter_details],
+                "parameter_details": [
+                    p.to_dict() for p in self._parameter_details
+                ],
             }
-        else:
-            data = {
+            if check_os() == "Windows"
+            else {
                 "type": self._type,
                 "name": self._name,
                 "description": self._description,
@@ -917,11 +897,11 @@ class FunctionInfo(Info):
                 "class": self._class,
                 "module": self._module,
                 "parameters": list(self._parameters),
-                "parameter_details": [p.to_dict()
-                                      for p in self._parameter_details],
+                "parameter_details": [
+                    p.to_dict() for p in self._parameter_details
+                ],
             }
-
-        return data
+        )
 
     def from_dict(self, data: dict, method: str = 'NONE'):
         if "type" not in data:
@@ -940,22 +920,20 @@ class FunctionInfo(Info):
             self._module = data["module"]
 
         if "parameters" in data:
-            if method == 'NEW':
-                if len(self._parameters) == 0:
-                    self._parameters = data["parameters"]
-            elif method == 'APPEND':
-                self._parameters.extend(data["parameters"])
-            elif method == 'UPDATE':
+            if (
+                method != 'APPEND'
+                and method == 'NEW'
+                and len(self._parameters) == 0
+                or method != 'APPEND'
+                and method != 'NEW'
+                and method == 'UPDATE'
+            ):
                 self._parameters = data["parameters"]
-
+            elif (method == 'APPEND' or method != 'NEW') and method == 'APPEND':
+                self._parameters.extend(data["parameters"])
         if "parameter_details" in data:
-            if method == 'NEW':
-                for pd in data["parameter_details"]:
-                    new_pd = ParameterDetailInfo()
-                    new_pd.from_dict(pd, 'NEW')
-                    self._parameter_details.append(new_pd)
-            elif method == 'APPEND':
-                for pd in data["parameter_details"]:
+            for pd in data["parameter_details"]:
+                if method == 'APPEND':
                     for update_pd in self._parameter_details:
                         if update_pd.name() == pd["name"]:
                             update_pd.from_dict(pd, 'APPEND')
@@ -964,8 +942,11 @@ class FunctionInfo(Info):
                         new_pd = ParameterDetailInfo()
                         new_pd.from_dict(pd, 'NEW')
                         self._parameter_details.append(new_pd)
-            elif method == 'UPDATE':
-                for pd in data["parameter_details"]:
+                elif method == 'NEW':
+                    new_pd = ParameterDetailInfo()
+                    new_pd.from_dict(pd, 'NEW')
+                    self._parameter_details.append(new_pd)
+                elif method == 'UPDATE':
                     for update_pd in self._parameter_details:
                         if update_pd.name() == pd["name"]:
                             update_pd.from_dict(pd, 'UPDATE')
@@ -974,19 +955,17 @@ class FunctionInfo(Info):
                         raise RuntimeError(f"{pd['name']} is not found")
 
         if "return" in data:
-            if method == 'NEW':
-                if self._return is None:
-                    self._return = ReturnInfo()
-                    self._return.from_dict(data["return"], 'NEW')
-            elif method == 'APPEND':
-                if self._return is not None:
-                    self._return.from_dict(data["return"], 'APPEND')
-                else:
-                    self._return = ReturnInfo()
-                    self._return.from_dict(data["return"], 'NEW')
-            elif method == 'UPDATE':
-                if self._return is not None:
-                    self._return.from_dict(data["return"], 'UPDATE')
+            if method == 'APPEND' and self._return is not None:
+                self._return.from_dict(data["return"], 'APPEND')
+            elif method == 'APPEND' or method == 'NEW' and self._return is None:
+                self._return = ReturnInfo()
+                self._return.from_dict(data["return"], 'NEW')
+            elif (
+                method != 'NEW'
+                and (method != 'UPDATE' or self._return is not None)
+                and method == 'UPDATE'
+            ):
+                self._return.from_dict(data["return"], 'UPDATE')
 
 
 class ClassInfo(Info):
@@ -1088,29 +1067,29 @@ class ClassInfo(Info):
         if self._description is None:
             self._description = ""
 
-        if check_os() == "Windows":
-            data = {
+        return (
+            {
                 "type": self._type,
                 "name": remove_unencodable(self._name),
                 "description": remove_unencodable(self._description),
                 "module": remove_unencodable(self._module),
                 "methods": [m.to_dict() for m in self._methods],
                 "attributes": [a.to_dict() for a in self._attributes],
-                "base_classes": [remove_unencodable(c.to_string())
-                                 for c in self._base_classes]
+                "base_classes": [
+                    remove_unencodable(c.to_string()) for c in self._base_classes
+                ],
             }
-        else:
-            data = {
+            if check_os() == "Windows"
+            else {
                 "type": self._type,
                 "name": self._name,
                 "description": self._description,
                 "module": self._module,
                 "methods": [m.to_dict() for m in self._methods],
                 "attributes": [a.to_dict() for a in self._attributes],
-                "base_classes": [c.to_string() for c in self._base_classes]
+                "base_classes": [c.to_string() for c in self._base_classes],
             }
-
-        return data
+        )
 
     def from_dict(self, data: dict, method: str = 'NONE'):
         if "type" not in data:

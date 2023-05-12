@@ -60,45 +60,37 @@ class DAG:
         return self._root_node
 
     def nodes(self, with_root: bool = False) -> List['Node']:
-        if with_root:
-            return self._nodes
-
-        return list(set(self._nodes) - {self._root_node, })
+        return (
+            self._nodes
+            if with_root
+            else list(
+                set(self._nodes)
+                - {
+                    self._root_node,
+                }
+            )
+        )
 
     def edges(self, with_root: bool = False) -> List['Edge']:
         if with_root:
             return self._edges
 
-        edges = []
-        for e in self._edges:
-            if e.src() != self._root_node:
-                edges.append(e)
-
-        return edges
+        return [e for e in self._edges if e.src() != self._root_node]
 
     def num_nodes(self, with_root: bool = False) -> int:
-        if with_root:
-            return len(self._nodes)
-
-        return len(self._nodes) - 1
+        return len(self._nodes) if with_root else len(self._nodes) - 1
 
     def num_edges(self, with_root: bool = False) -> int:
         if with_root:
             return len(self._edges)
 
-        count = 0
-        for e in self._edges:
-            if e.src() != self._root_node:
-                count += 1
-
-        return count
+        return sum(1 for e in self._edges if e.src() != self._root_node)
 
 
 def topological_sort(graph: 'DAG') -> List['Node']:
-    ref_counts: Dict['Node', int] = {}
-    for node in graph.nodes(with_root=True):
-        ref_counts[node] = node.num_in_edges()
-
+    ref_counts: Dict['Node', int] = {
+        node: node.num_in_edges() for node in graph.nodes(with_root=True)
+    }
     sorted_nodes: List['Node'] = []
     ready: List['Node'] = [graph.root_node()]
     while ready:
@@ -113,8 +105,11 @@ def topological_sort(graph: 'DAG') -> List['Node']:
                 ready.append(e.dst())
 
     if graph.num_nodes(with_root=True) != len(sorted_nodes) + 1:
-        diff = set(graph.nodes(with_root=True)) \
-             - set(sorted_nodes) - set([graph.root_node()])
+        diff = (
+            set(graph.nodes(with_root=True))
+            - set(sorted_nodes)
+            - {graph.root_node()}
+        )
         node_data_list = {n.data() for n in diff}
         raise ValueError(f"Cycle is detected. ({', '.join(node_data_list)})")
 

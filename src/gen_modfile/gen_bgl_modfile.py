@@ -36,37 +36,27 @@ class GenerationConfig:
 def get_function_name(line: str) -> str:
     regex = r"^\s*PY_MOD_ADD_METHOD\(([A-Za-z0-9]+)\);$"
     pattern = re.compile(regex)
-    match = re.match(pattern, line)
-    if match:
-        return f"gl{match.group(1)}"
-
-    return None
+    return f"gl{match[1]}" if (match := re.match(pattern, line)) else None
 
 
 def get_const_name(line: str) -> str:
     regex = r"^\s*PY_DICT_ADD_INT\(([A-Za-z0-9_]+)\);$"
     pattern = re.compile(regex)
-    match = re.match(pattern, line)
-    if match:
-        return match.group(1)
+    if match := re.match(pattern, line):
+        return match[1]
 
     regex = r"^\s*PY_DICT_ADD_INT64\(([A-Za-z0-9_]+)\);$"
     pattern = re.compile(regex)
-    match = re.match(pattern, line)
-    if match:
-        return match.group(1)
-
-    return None
+    return match[1] if (match := re.match(pattern, line)) else None
 
 
 def get_function_info(line: str) -> Dict:
     regex = r"^BGL_Wrap\(([A-Za-z0-9]+),([A-Za-z]+),(\([A-Za-z0-9,]+\))\);$"
     pattern = re.compile(regex)
-    match = re.match(pattern, line)
-    if match:
-        func_name = match.group(1)
-        return_type = match.group(2)
-        args_list = match.group(3)
+    if match := re.match(pattern, line):
+        func_name = match[1]
+        return_type = match[2]
+        args_list = match[3]
         return {
             "func_name": f"gl{func_name}",
             "return_type": return_type,
@@ -77,13 +67,12 @@ def get_function_info(line: str) -> Dict:
 
 
 def create_constant_def(const_name: str) -> Dict:
-    constant_def = {
+    return {
         "name": const_name,
         "type": "constant",
         "module": "bgl",
         "data_type": "float",
     }
-    return constant_def
 
 
 def gltype_to_pytype(gltype: str) -> str:
@@ -152,8 +141,7 @@ def analyze(config: 'GenerationConfig') -> Dict:
         matched = re.findall(regex, data)
         for m in matched:
             pattern = re.compile(r"\s+")
-            replaced = pattern.sub("", m)
-            if replaced:
+            if replaced := pattern.sub("", m):
                 info = get_function_info(replaced)
                 func_info[info["func_name"]] = info
 
@@ -161,16 +149,12 @@ def analyze(config: 'GenerationConfig') -> Dict:
     func_lists = []
     const_lists = []
     with open(config.bgl_c_file, "r", encoding="utf-8") as f:
-        line = f.readline()
-        while line:
+        while line := f.readline():
             func_name = get_function_name(line)
             if func_name in func_info:
                 func_lists.append(func_name)
-            const_name = get_const_name(line)
-            if const_name:
+            if const_name := get_const_name(line):
                 const_lists.append(const_name)
-            line = f.readline()
-
     # Create data to write.
     data = {"new": []}
     for const in const_lists:

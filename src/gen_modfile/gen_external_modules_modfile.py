@@ -48,9 +48,7 @@ EXCLUDE_MODULE_LIST = {
 
 
 def separator():
-    if os.name == "nt":
-        return "\\"
-    return "/"
+    return "\\" if os.name == "nt" else "/"
 
 
 class GenerationConfig:
@@ -81,8 +79,7 @@ def get_module_name_list(config: 'GenerationConfig') -> List[str]:
 def import_modules(module_name_list: List[str]) -> List:
     imported_modules = []
     for name in module_name_list:
-        mod = {}
-        mod["module"] = importlib.import_module(name)
+        mod = {"module": importlib.import_module(name)}
         mod["module_name"] = name
         imported_modules.append(mod)
 
@@ -117,17 +114,15 @@ def analyze_class(module_name: str, class_) -> Dict:
         "module": module_name,
         "methods": [],
         "attributes": [],
+        "base_classes": [],
     }
 
-    # Get base classes
-    class_def["base_classes"] = []
     for c in inspect.getmro(class_[1]):
         if c.__name__ == class_[1].__name__:
             continue
         if c.__module__ == "builtins":
             continue
-        class_def["base_classes"].append(
-            "{}.{}".format(c.__module__, c.__name__))  # pylint: disable=C0209
+        class_def["base_classes"].append(f"{c.__module__}.{c.__name__}")
 
     for x in inspect.getmembers(class_[1]):
         if x[0].startswith("_"):
@@ -165,13 +160,9 @@ def analyze_module(module_name: str, module) -> Dict:
             continue    # Remove indirect classes. (ex. from XXX import ZZZ)
         class_def = analyze_class(module_name, c)
 
-        # To avoid circular dependency, we remove classes whose base class is
-        # defined in bpy.types module.
-        has_bpy_types_base_class = False
-        for bc in class_def["base_classes"]:
-            if bc.find("bpy.types.") != -1:
-                has_bpy_types_base_class = True
-                break
+        has_bpy_types_base_class = any(
+            bc.find("bpy.types.") != -1 for bc in class_def["base_classes"]
+        )
         if has_bpy_types_base_class:
             continue
 
@@ -191,12 +182,10 @@ def analyze_module(module_name: str, module) -> Dict:
 
 
 def analyze(modules: List) -> Dict:
-    results = {}
-    for m in modules:
-        results[m["module_name"]] = analyze_module(
-            m["module_name"], m["module"])
-
-    return results
+    return {
+        m["module_name"]: analyze_module(m["module_name"], m["module"])
+        for m in modules
+    }
 
 
 def write_to_modfile(info: Dict, config: 'GenerationConfig'):
@@ -222,8 +211,7 @@ def write_to_modfile(info: Dict, config: 'GenerationConfig'):
     os.makedirs(config.output_dir, exist_ok=True)
     for pkg, d in data.items():
         # pylint: disable=C0209
-        with open("{}/{}.json".format(config.output_dir, pkg), "w",
-                  encoding="utf-8") as f:
+        with open(f"{config.output_dir}/{pkg}.json", "w", encoding="utf-8") as f:
             json.dump(d, f, indent=4, sort_keys=True, separators=(",", ": "))
 
 
@@ -243,7 +231,7 @@ def get_alias_to_bpy_types(results):
                     "type": "constant",
                     "name": c["name"],
                     "module": "bpy.types",
-                    "data_type": "`{}.{}`".format(c["module"], c["name"]),    # noqa # pylint: disable=C0209
+                    "data_type": f'`{c["module"]}.{c["name"]}`',
                 }
                 alias["constants"].append(constant_def)
 
@@ -260,9 +248,7 @@ def parse_options() -> 'GenerationConfig':
     argv = argv[index:]
 
     # pylint: disable=C0209
-    usage = "Usage: blender -noaudio --factory-startup --background " \
-            "--python {} -- [-m <first_import_module_name>] [-a] " \
-            "[-o <output_dir>]".format(__file__)
+    usage = f"Usage: blender -noaudio --factory-startup --background --python {__file__} -- [-m <first_import_module_name>] [-a] [-o <output_dir>]"
     parser = argparse.ArgumentParser(usage)
     parser.add_argument(
         "-m", dest="first_import_module_name", type=str,

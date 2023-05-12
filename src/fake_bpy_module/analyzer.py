@@ -48,8 +48,7 @@ class RstLevel:
         return len(self.spaces())
 
     def make_next_level(self, spaces_to_add: str) -> 'RstLevel':
-        new_level = RstLevel(self._level + 1, self._spaces + spaces_to_add)
-        return new_level
+        return RstLevel(self._level + 1, self._spaces + spaces_to_add)
 
 
 class BaseAnalyzer:
@@ -87,8 +86,7 @@ class BaseAnalyzer:
 
     def _skip_until_next_le_level(self, file: IO[Any], level: 'RstLevel'):
         last_pos = file.tell()
-        line = file.readline()
-        while line:
+        while line := file.readline():
             if re.match(r"^\s*$", line):
                 pass
             elif self._has_le_level_start(line, level):
@@ -98,7 +96,6 @@ class BaseAnalyzer:
                 file.seek(last_pos)
                 return
             last_pos = file.tell()
-            line = file.readline()
 
     def _parse_module(self, file: IO[Any], level: int) -> str:
         line = file.readline()
@@ -106,17 +103,16 @@ class BaseAnalyzer:
         if m is None:
             self._invalid_line(line, level)
 
-        module_name = m.group(2)
+        module_name = m[2]
 
-        if not self.support_bge:
-            if self.blender_version == "2.90":
-                if module_name.startswith("bpy.types."):
-                    module_name = module_name[:module_name.rfind(".")]
-            elif self.blender_version in [
+        if self.blender_version == "2.90":
+            if not self.support_bge and module_name.startswith("bpy.types."):
+                module_name = module_name[:module_name.rfind(".")]
+        elif self.blender_version in [
                     "2.91", "2.92", "2.93",
                     "3.0", "3.1", "3.2", "3.3", "3.4", "latest"]:
-                if module_name == "bpy.data":
-                    module_name = "bpy"
+            if not self.support_bge and module_name == "bpy.data":
+                module_name = "bpy"
 
         return module_name
 
@@ -126,12 +122,8 @@ class BaseAnalyzer:
         if m is None:
             self._invalid_line(line, level)
 
-        base_classes = []
-        sps = self._split_string_by_comma(self._cleanup_string(m.group(2)))
-        for sp in sps:
-            base_classes.append(IntermidiateDataType(self._cleanup_string(sp)))
-
-        return base_classes
+        sps = self._split_string_by_comma(self._cleanup_string(m[2]))
+        return [IntermidiateDataType(self._cleanup_string(sp)) for sp in sps]
 
     def _parse_description(self, file: IO[Any], level: 'RstLevel') -> str:
         line = file.readline()
@@ -143,8 +135,7 @@ class BaseAnalyzer:
         description = line
 
         last_pos = file.tell()
-        line = file.readline()
-        while line:
+        while line := file.readline():
             if re.match(r"^\s*$", line):
                 pass
             elif self._has_le_level_start(line, level):
@@ -161,21 +152,15 @@ class BaseAnalyzer:
             else:
                 self._invalid_line(line, level)
             last_pos = file.tell()
-            line = file.readline()
-
         return description
 
     def _has_le_level_start(self, line: str, level: 'RstLevel') -> bool:
         pattern = r"^\s{0," + str(level.num_spaces()) + r"}\.\."
-        if re.match(pattern, line):
-            return True
-        return False
+        return bool(re.match(pattern, line))
 
     def _has_le_level_string(self, line: str, level: 'RstLevel') -> bool:
         pattern = r"^\s{0," + str(level.num_spaces()) + r"}\S+"
-        if re.match(pattern, line):
-            return True
-        return False
+        return bool(re.match(pattern, line))
 
     # pylint: disable=R0912,R0914,R0915
     def _parse_func_detail(self, file: IO[Any], level: 'RstLevel') -> dict:
@@ -188,13 +173,15 @@ class BaseAnalyzer:
                 self._invalid_line(line, level)
 
             infos = []
-            for s in self._split_string_by_comma(m.group(1)):
-                infos.append({
-                    "name": self._cleanup_string(s),
-                    "type": "parameter",
-                    "description": "",
-                    "data_type": m.group(2),
-                })
+            for s in self._split_string_by_comma(m[1]):
+                infos.append(
+                    {
+                        "name": self._cleanup_string(s),
+                        "type": "parameter",
+                        "description": "",
+                        "data_type": m[2],
+                    }
+                )
 
             last_pos = file.tell()
             line = file.readline()
@@ -234,13 +221,15 @@ class BaseAnalyzer:
                 self._invalid_line(line, level)
 
             infos = []
-            for s in self._split_string_by_comma(m.group(2)):
-                infos.append({
-                    "name": self._cleanup_string(s),
-                    "type": "parameter",
-                    "description": m.group(3),
-                    "data_type": "",
-                })
+            for s in self._split_string_by_comma(m[2]):
+                infos.append(
+                    {
+                        "name": self._cleanup_string(s),
+                        "type": "parameter",
+                        "description": m[3],
+                        "data_type": "",
+                    }
+                )
 
             last_pos = file.tell()
             line = file.readline()
@@ -279,7 +268,7 @@ class BaseAnalyzer:
             if m is None:
                 self._invalid_line(line, level)
 
-            description = re.sub(r"\s+", " ", m.group(1))
+            description = re.sub(r"\s+", " ", m[1])
 
             last_pos = file.tell()
             line = file.readline()
@@ -313,7 +302,7 @@ class BaseAnalyzer:
             if m is None:
                 self._invalid_line(line, level)
 
-            data_type = re.sub(r"\s+", " ", m.group(1))
+            data_type = re.sub(r"\s+", " ", m[1])
 
             last_pos = file.tell()
             line = file.readline()
@@ -358,18 +347,18 @@ class BaseAnalyzer:
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}:(type|arg|param|return|rtype)", line):    # noqa # pylint: disable=C0301
                 m = re.match(r"^\s{" + str(level.num_spaces()) + r"}:(type|arg|param|return|rtype)", line)  # noqa # pylint: disable=C0301
                 file.seek(last_pos)
-                if m.group(1) == "type":
+                if m[1] == "type":
                     parameters_types.extend(_parse_type(file, level))
-                elif m.group(1) in ["arg", "param"]:
+                elif m[1] in ["arg", "param"]:
                     parameters_args.extend(_parse_arg(file, level))
-                elif m.group(1) == "return":
+                elif m[1] == "return":
                     if return_ is not None:
                         raise ValueError(
                             f":return must be appeared only once: "
                             f"{self.current_file} (File name: {line}, "
                             f"Level: {level.level()})")
                     return_ = _parse_return(file, level)
-                elif m.group(1) == "rtype":
+                elif m[1] == "rtype":
                     if return_type is not None:
                         raise ValueError(
                             f":rtype must be appeared only once: "
@@ -402,7 +391,7 @@ class BaseAnalyzer:
 
             is_optional = False
             if (param_info.description() is not None) and \
-                    ("optional" in param_info.description()):
+                        ("optional" in param_info.description()):
                 is_optional = True
             dt = IntermidiateDataType(self._cleanup_string(pt["data_type"]))
             dt.set_is_optional(is_optional)
@@ -421,7 +410,7 @@ class BaseAnalyzer:
 
                 is_optional = False
                 if (param_info.description() is not None) and \
-                        ("optional" in param_info.description()):
+                            ("optional" in param_info.description()):
                     is_optional = True
                 dt = IntermidiateDataType(
                     self._cleanup_string(pa["data_type"]))
@@ -487,10 +476,7 @@ class BaseAnalyzer:
 
             # Bin, hex, oct default value.
             m = re.search(r"0[box][0-9A-Fa-f]+", value)
-            if m is not None:
-                return True
-
-            return False
+            return m is not None
 
         # Convert data type to string about the custom data type.
         params_converted = []
@@ -501,8 +487,8 @@ class BaseAnalyzer:
                 params_converted.append(p)
                 continue
 
-            param_variable = m.group(1)
-            default_value = m.group(2)
+            param_variable = m[1]
+            default_value = m[2]
             if is_builtin_value(default_value):
                 params_converted.append(p)
                 continue
@@ -541,7 +527,7 @@ class BaseAnalyzer:
             if m is None:
                 self._invalid_line(line, level)
 
-            type_str = m.group(1)
+            type_str = m[1]
 
             last_pos = file.tell()
             line = file.readline()
@@ -557,10 +543,11 @@ class BaseAnalyzer:
                     return type_str
 
                 if re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line):  # noqa # pylint: disable=C0301
-                    next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line).group(1)   # noqa # pylint: disable=C0301
+                    next_level_spaces = re.match(
+                        r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line
+                    )[1]
                     file.seek(last_pos)
-                    type_str += " " + self._parse_description(
-                        file, level=level.make_next_level(next_level_spaces))
+                    type_str += f" {self._parse_description(file, level=level.make_next_level(next_level_spaces))}"
                     type_str = self._cleanup_string(type_str)
                 else:
                     self._invalid_line(line, level)
@@ -576,7 +563,7 @@ class BaseAnalyzer:
             self._invalid_line(line, level)
 
         info = VariableInfo("constant")
-        info.set_name(self._cleanup_string(m.group(2)))
+        info.set_name(self._cleanup_string(m[2]))
         if self.current_module is not None:
             info.set_module(self.current_module)
 
@@ -592,32 +579,48 @@ class BaseAnalyzer:
                 file.seek(last_pos)
                 return info
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line):   # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line).group(1)    # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line
+                )[1]
                 file.seek(last_pos)
                 info.set_data_type(IntermidiateDataType(
                     self._cleanup_string(_parse_type(
                         file,
                         level=level.make_next_level(next_level_spaces)))))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (note|code-block)::", line):     # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (note|code-block)::", line).group(1)  # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{"
+                    + str(level.num_spaces())
+                    + r"}(\s+)\.\. (note|code-block)::",
+                    line,
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (to do)", line):     # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (to do)", line).group(1)  # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (to do)", line
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. _[a-zA-Z0-9-_]+:", line):    # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. _[a-zA-Z0-9-_]+:", line).group(1)     # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{"
+                    + str(level.num_spaces())
+                    + r"}(\s+)\.\. _[a-zA-Z0-9-_]+:",
+                    line,
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\.", line):     # noqa # pylint: disable=C0301
                 self._invalid_line(line, level)
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line):  # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line).group(1)   # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line
+                )[1]
                 file.seek(last_pos)
-                info.append_description(" " + self._cleanup_string(
-                    self._parse_description(
-                        file, level=level.make_next_level(next_level_spaces))))
+                info.append_description(
+                    f" {self._cleanup_string(self._parse_description(file, level=level.make_next_level(next_level_spaces)))}"
+                )
                 info.set_description(self._cleanup_string(info.description()))
             else:
                 self._invalid_line(line, level)
@@ -635,7 +638,7 @@ class BaseAnalyzer:
             if m is None:
                 self._invalid_line(line, level)
 
-            type_str = m.group(1)
+            type_str = m[1]
 
             last_pos = file.tell()
             line = file.readline()
@@ -651,10 +654,11 @@ class BaseAnalyzer:
                     return type_str
 
                 if re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line):  # noqa # pylint: disable=C0301
-                    next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line).group(1)   # noqa # pylint: disable=C0301
+                    next_level_spaces = re.match(
+                        r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line
+                    )[1]
                     file.seek(last_pos)
-                    type_str += " " + self._parse_description(
-                        file, level=level.make_next_level(next_level_spaces))
+                    type_str += f" {self._parse_description(file, level=level.make_next_level(next_level_spaces))}"
                     type_str = self._cleanup_string(type_str)
                 else:
                     self._invalid_line(line, level)
@@ -670,7 +674,7 @@ class BaseAnalyzer:
             self._invalid_line(line, level)
 
         info = VariableInfo("attribute")
-        info.set_name(self._cleanup_string(m.group(2)))
+        info.set_name(self._cleanup_string(m[2]))
         if self.current_module is not None:
             info.set_module(self.current_module)
 
@@ -687,29 +691,40 @@ class BaseAnalyzer:
                 return info
             elif re.match(
                     r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line):
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line).group(1)    # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+):type:", line
+                )[1]
                 file.seek(last_pos)
                 info.set_data_type(IntermidiateDataType(self._cleanup_string(
                     _parse_type(
                         file,
                         level=level.make_next_level(next_level_spaces)))))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (seealso|warning|note|code-block|deprecated)::", line):  # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (seealso|warning|note|code-block|deprecated)::", line).group(1)   # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{"
+                    + str(level.num_spaces())
+                    + r"}(\s+)\.\. (seealso|warning|note|code-block|deprecated)::",
+                    line,
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (note):", line):     # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (note):", line).group(1)  # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (note):", line
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(
                     r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\.", line):
                 self._invalid_line(line, level)
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line):  # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line).group(1)   # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line
+                )[1]
                 file.seek(last_pos)
-                info.append_description(" " + self._cleanup_string(
-                    self._parse_description(
-                        file, level=level.make_next_level(next_level_spaces))))
+                info.append_description(
+                    f" {self._cleanup_string(self._parse_description(file, level=level.make_next_level(next_level_spaces)))}"
+                )
                 info.set_description(self._cleanup_string(info.description()))
             else:
                 self._invalid_line(line, level)
@@ -739,15 +754,14 @@ class BaseAnalyzer:
             self._invalid_line(line, level)
 
         info = FunctionInfo("function")
-        info.set_name(self._cleanup_string(m.group(2)))
+        info.set_name(self._cleanup_string(m[2]))
         if self.current_module is not None:
             info.set_module(self.current_module)
-        for p in self._split_string_by_comma(m.group(3)):
+        for p in self._split_string_by_comma(m[3]):
             info.add_parameter(self._cleanup_string(p))
 
         last_pos = file.tell()
-        line = file.readline()
-        while line:
+        while line := file.readline():
             if re.match(r"^\s*$", line):
                 pass
             elif self._has_le_level_start(line, level):
@@ -757,7 +771,12 @@ class BaseAnalyzer:
                 file.seek(last_pos)
                 return info
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+):(type|arg|param|return|rtype)", line):   # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+):(type|arg|param|return|rtype)", line).group(1)    # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{"
+                    + str(level.num_spaces())
+                    + r"}(\s+):(type|arg|param|return|rtype)",
+                    line,
+                )[1]
                 file.seek(last_pos)
                 detail = self._parse_func_detail(
                     file, level=level.make_next_level(next_level_spaces))
@@ -765,27 +784,35 @@ class BaseAnalyzer:
                 if detail["return"] is not None:
                     info.set_return(detail["return"])
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (seealso|note|warning|code-block)::", line):     # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (seealso|note|warning|code-block)::", line).group(1)  # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{"
+                    + str(level.num_spaces())
+                    + r"}(\s+)\.\. (seealso|note|warning|code-block)::",
+                    line,
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (warning):", line):  # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (warning):", line).group(1)   # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\. (warning):",
+                    line,
+                )[1]
                 self._skip_until_next_le_level(
                     file, level=level.make_next_level(next_level_spaces))
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\.\.", line):     # noqa # pylint: disable=C0301
                 self._invalid_line(line, level)
             elif re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line):  # noqa # pylint: disable=C0301
-                next_level_spaces = re.match(r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line).group(1)   # noqa # pylint: disable=C0301
+                next_level_spaces = re.match(
+                    r"^\s{" + str(level.num_spaces()) + r"}(\s+)\S+", line
+                )[1]
                 file.seek(last_pos)
-                info.append_description(" " + self._cleanup_string(
-                    self._parse_description(
-                        file, level=level.make_next_level(next_level_spaces))))
+                info.append_description(
+                    f" {self._cleanup_string(self._parse_description(file, level=level.make_next_level(next_level_spaces)))}"
+                )
                 info.set_description(self._cleanup_string(info.description()))
             else:
                 self._invalid_line(line, level)
             last_pos = file.tell()
-            line = file.readline()
-
         return info
 
     def _parse_class(self, file: IO[Any], level: 'RstLevel') -> 'ClassInfo':

@@ -111,22 +111,25 @@ class BaseGenerator:
                 name = sp[0]
             else:
                 raise RuntimeError(f"Invalid format of parameter '{p}'")
-            pd_matched = None
-            for pd in data["parameter_details"]:
-                if (pd["name"] == name) and (pd["data_type"] is not None) and \
-                        (pd["data_type"] != ""):
-                    pd_matched = pd
-                    break
-            if pd_matched is not None:
-                if default_value is not None:
-                    wt.add(f"{pd_matched['name']}: "
-                           f"{pd_matched['data_type']}="
-                           f"{pd_matched['default_value']}")
-                else:
-                    wt.add(f"{pd_matched['name']}: {pd_matched['data_type']}")
-            else:
+            pd_matched = next(
+                (
+                    pd
+                    for pd in data["parameter_details"]
+                    if (pd["name"] == name)
+                    and (pd["data_type"] is not None)
+                    and (pd["data_type"] != "")
+                ),
+                None,
+            )
+            if pd_matched is None:
                 wt.add(p)
 
+            elif default_value is not None:
+                wt.add(f"{pd_matched['name']}: "
+                       f"{pd_matched['data_type']}="
+                       f"{pd_matched['default_value']}")
+            else:
+                wt.add(f"{pd_matched['name']}: {pd_matched['data_type']}")
             if i != len(data["parameters"]) - 1:
                 wt.add(", ")
         if data["return"]["data_type"] == "":
@@ -191,19 +194,14 @@ class BaseGenerator:
                     else:
                         wt.add(f"def {m['name']}(self")
                 elif m["type"] == "classmethod":
+                    wt.addln("@classmethod")
                     if len(m["parameters"]) > 0:
-                        wt.addln("@classmethod")
                         wt.add(f"def {m['name']}(cls, ")
                     else:
-                        wt.addln("@classmethod")
                         wt.add(f"def {m['name']}(cls")
                 elif m["type"] == "staticmethod":
-                    if len(m["parameters"]) > 0:
-                        wt.addln("@staticmethod")
-                        wt.add(f"def {m['name']}(")
-                    else:
-                        wt.addln("@staticmethod")
-                        wt.add(f"def {m['name']}(")
+                    wt.addln("@staticmethod")
+                    wt.add(f"def {m['name']}(")
                 for i, p in enumerate(m["parameters"]):
                     sp = p.split("=")
                     default_value = None
@@ -215,25 +213,27 @@ class BaseGenerator:
                     else:
                         raise RuntimeError(
                             f"Invalid format of parameter '{p}'")
-                    pd_matched = None
-                    for pd in m["parameter_details"]:
-                        if (pd["name"] == name) and \
-                                (pd["data_type"] is not None) and \
-                                (pd["data_type"] != ""):
-                            pd_matched = pd
-                            break
-                    if pd_matched is not None:
-                        if default_value is not None:
-                            wt.add(
-                                f"{pd_matched['name']}: "
-                                f"{pd_matched['data_type']}="
-                                f"{pd_matched['default_value']}")
-                        else:
-                            wt.add(f"{pd_matched['name']}: "
-                                   f"{pd_matched['data_type']}")
-                    else:
+                    pd_matched = next(
+                        (
+                            pd
+                            for pd in m["parameter_details"]
+                            if (pd["name"] == name)
+                            and (pd["data_type"] is not None)
+                            and (pd["data_type"] != "")
+                        ),
+                        None,
+                    )
+                    if pd_matched is None:
                         wt.add(p)
 
+                    elif default_value is not None:
+                        wt.add(
+                            f"{pd_matched['name']}: "
+                            f"{pd_matched['data_type']}="
+                            f"{pd_matched['default_value']}")
+                    else:
+                        wt.add(f"{pd_matched['name']}: "
+                               f"{pd_matched['data_type']}")
                     if i != len(m["parameters"]) - 1:
                         wt.add(", ")
                 if m["return"]["data_type"] == "":
@@ -314,7 +314,7 @@ class BaseGenerator:
             else:
                 raise ValueError(f"Invalid data type. ({d.type})")
         class_data = high_priority_class_data \
-            + sorted(class_data, key=lambda x: x.name())
+                + sorted(class_data, key=lambda x: x.name())
 
         # Sort class data (with class inheritance dependencies)
         graph = DAG()
@@ -356,9 +356,7 @@ class BaseGenerator:
             def sort_func(x):
                 if x.type() == 'UNKNOWN':
                     return 0
-                if x.data_type() not in order:
-                    return 0
-                return -order[x.data_type()]
+                return 0 if x.data_type() not in order else -order[x.data_type()]
 
             new_base_classes = sorted(class_.base_classes(), key=sort_func)
             for i, c in enumerate(new_base_classes):
@@ -435,9 +433,7 @@ class BaseGenerator:
 
             if style_config != "none":
                 wt.format(style_config)
-                wt.write(file)
-            else:
-                wt.write(file)
+            wt.write(file)
 
     def dump_json(self, filename: str, data: 'GenerationInfoByTarget'):
         json_data = [info.to_dict() for info in data.data]
@@ -565,11 +561,7 @@ class PackageAnalyzer:
         return self._build_module_structure(module_list)
 
     def _analyze(self) -> Dict['PackageGenerationRule', AnalysisResult]:
-        result = {}
-        for rule in self._rules:
-            result[rule] = self._analyze_by_rule(rule)
-
-        return result
+        return {rule: self._analyze_by_rule(rule) for rule in self._rules}
 
     def _analyze_by_rule(
             self, rule: 'PackageGenerationRule') -> AnalysisResult:
@@ -580,9 +572,7 @@ class PackageAnalyzer:
             rule.analyzer().enable_bge_support()
         if self._config.blender_version is not None:
             rule.analyzer().set_blender_version(self._config.blender_version)
-        result = rule.analyzer().analyze(target_files)
-
-        return result
+        return rule.analyzer().analyze(target_files)
 
     # build module structure
     def _build_module_structure(self, modules) -> 'ModuleStructure':
@@ -650,23 +640,23 @@ class PackageAnalyzer:
             self, analyze_result: AnalysisResult,
             module_structure: 'ModuleStructure') -> 'GenerationInfoByRule':
         def find_target_file(
-                name: str, structure: 'ModuleStructure', target: str) -> str:
+                    name: str, structure: 'ModuleStructure', target: str) -> str:
             for m in structure.children():
                 mod_name = name + m.name
                 if mod_name == target:
                     if len(m.children()) == 0:
-                        return mod_name + ".py"
-                    return mod_name + "/__init__.py"
+                        return f"{mod_name}.py"
+                    return f"{mod_name}/__init__.py"
 
                 if len(m.children()) > 0:
-                    ret = find_target_file(mod_name + "/", m, target)
+                    ret = find_target_file(f"{mod_name}/", m, target)
                     if ret:
                         return ret
             return None
 
         def build_child_modules(
-                gen_info: 'GenerationInfoByRule', name: str,
-                structure: 'ModuleStructure'):
+                    gen_info: 'GenerationInfoByRule', name: str,
+                    structure: 'ModuleStructure'):
             for m in structure.children():
                 mod_name = name + m.name
                 if len(m.children()) == 0:
@@ -681,7 +671,7 @@ class PackageAnalyzer:
                     info.data = []
                     info.child_modules = [child.name for child in m.children()]
                     info.name = mod_name
-                    build_child_modules(gen_info, mod_name + ".", m)
+                    build_child_modules(gen_info, f"{mod_name}.", m)
 
         # build child modules
         generator_info = GenerationInfoByRule()
@@ -710,16 +700,14 @@ class PackageAnalyzer:
         mod_names_1 = mod_names_full_1.split(".")
         mod_names_2 = mod_names_full_2.split(".")
 
-        for i, (m1, m2) in enumerate(zip(mod_names_1, mod_names_2)):
-            if m1 != m2:
-                match_level = i
-                break
-        else:
-            if len(mod_names_1) >= len(mod_names_2):
-                match_level = len(mod_names_2)
-            else:
-                match_level = len(mod_names_1)
-
+        match_level = next(
+            (
+                i
+                for i, (m1, m2) in enumerate(zip(mod_names_1, mod_names_2))
+                if m1 != m2
+            ),
+            min(len(mod_names_1), len(mod_names_2)),
+        )
         # [Case 1] No match => Need to import top level module
         #   data_type_1: bpy.types.Mesh
         #   data_type_2: bgl.glCallLists()
@@ -736,26 +724,14 @@ class PackageAnalyzer:
             #       => None
             if rest_level_1 == 0 and rest_level_2 == 0:
                 module_path = None
-            # [Case 3] Match partially (Same level)
-            #               => Need to import top level
-            #   data_type_1: bpy.types.Mesh
-            #   data_type_2: bpy.ops.automerge()
-            #       => bpy.types
-            elif rest_level_1 >= 1 and rest_level_2 >= 1:
-                module_path = ".".join(mod_names_1)
-            # [Case 4] Match partially (Upper level)
-            #               => Need to import top level
-            #   data_type_1: mathutils.Vector
-            #   data_type_2: mathutils.noise.cell
-            #       => mathutils
-            elif rest_level_1 == 0 and rest_level_2 >= 1:
-                module_path = ".".join(mod_names_1)
-            # [Case 5] Match partially (Lower level)
-            #               => Need to import top level
-            #   data_type_1: mathutils.noise.cell
-            #   data_type_2: mathutils.Vector
-            #       => mathutils.noise
-            elif rest_level_1 >= 1 and rest_level_2 == 0:
+            elif (
+                rest_level_1 >= 1
+                and rest_level_2 >= 1
+                or rest_level_1 == 0
+                and rest_level_2 >= 1
+                or rest_level_1 >= 1
+                and rest_level_2 == 0
+            ):
                 module_path = ".".join(mod_names_1)
             else:
                 raise RuntimeError("Should not reach this condition.")
@@ -813,36 +789,54 @@ class PackageAnalyzer:
             if data.type() == "function":
                 for p in data.parameter_details():
                     self._add_dependency(
-                        dependencies, refiner, p.data_type(),
-                        data.module() + "." + data.name())
+                        dependencies,
+                        refiner,
+                        p.data_type(),
+                        f"{data.module()}.{data.name()}",
+                    )
                 r = data.return_()
                 if r is not None:
                     self._add_dependency(
-                        dependencies, refiner, r.data_type(),
-                        data.module() + "." + data.name())
+                        dependencies,
+                        refiner,
+                        r.data_type(),
+                        f"{data.module()}.{data.name()}",
+                    )
             elif data.type() == "constant":
                 self._add_dependency(
-                    dependencies, refiner, data.data_type(),
-                    data.module() + "." + data.name())
+                    dependencies,
+                    refiner,
+                    data.data_type(),
+                    f"{data.module()}.{data.name()}",
+                )
             elif data.type() == "class":
                 for m in data.methods():
                     for p in m.parameter_details():
                         self._add_dependency(
-                            dependencies, refiner, p.data_type(),
-                            data.module() + "." + data.name())
+                            dependencies,
+                            refiner,
+                            p.data_type(),
+                            f"{data.module()}.{data.name()}",
+                        )
                     r = m.return_()
                     if r is not None:
                         self._add_dependency(
-                            dependencies, refiner, r.data_type(),
-                            data.module() + "." + data.name())
+                            dependencies,
+                            refiner,
+                            r.data_type(),
+                            f"{data.module()}.{data.name()}",
+                        )
                 for a in data.attributes():
                     self._add_dependency(
-                        dependencies, refiner, a.data_type(),
-                        data.module() + "." + data.name())
+                        dependencies,
+                        refiner,
+                        a.data_type(),
+                        f"{data.module()}.{data.name()}",
+                    )
                 for c in data.base_classes():
                     self._add_dependency(
-                        dependencies, refiner, c,
-                        data.module() + "." + data.name())
+                        dependencies, refiner, c, f"{data.module()}.{data.name()}"
+                    )
 
         return dependencies
 
@@ -851,14 +845,14 @@ class PackageAnalyzer:
             analysis_result: AnalysisResult):
 
         def get_parameter_from_parameter_detail(
-                parameters: List[str],
-                parameter_detail: ParameterDetailInfo) -> str:
+                    parameters: List[str],
+                    parameter_detail: ParameterDetailInfo) -> str:
 
             for param in parameters:
                 param_str = param
                 m = re.match(r"^([a-zA-Z0-9_]+?)[=:]", param_str)
                 if m:
-                    param_str = m.group(1)
+                    param_str = m[1]
                 if param_str == parameter_detail.name():
                     return param
 
@@ -930,11 +924,10 @@ class PackageAnalyzer:
                 processed_info.data.append(d1)
                 continue
 
-            found = False
-            for d2 in processed_info.data:
-                if (d1.type() == d2.type()) and (d1.name() == d2.name()):
-                    found = True
-                    break
+            found = any(
+                (d1.type() == d2.type()) and (d1.name() == d2.name())
+                for d2 in processed_info.data
+            )
             if not found:
                 processed_info.data.append(d1)
 
@@ -945,11 +938,10 @@ class PackageAnalyzer:
 
             new_attributes: List[VariableInfo] = []
             for a1 in d.attributes():
-                found = False
-                for a2 in new_attributes:
-                    if (a1.type() == a2.type()) and (a1.name() == a2.name()):
-                        found = True
-                        break
+                found = any(
+                    (a1.type() == a2.type()) and (a1.name() == a2.name())
+                    for a2 in new_attributes
+                )
                 if not found:
                     new_attributes.append(a1)
             d.set_attributes(new_attributes)
@@ -1189,7 +1181,7 @@ class PackageGenerator:
             def make_dir(path, structure_: 'ModuleStructure'):
                 for item in structure_.children():
                     if len(item.children()) >= 1:
-                        dir_path = path + "/" + item.name
+                        dir_path = f"{path}/{item.name}"
                         pathlib.Path(dir_path).mkdir(
                             parents=True, exist_ok=True)
                         self._create_py_typed_file(dir_path)
@@ -1221,7 +1213,7 @@ class PackageGenerator:
     def _generate(
             self, package_strcuture: 'ModuleStructure',
             generation_info: Dict['PackageGenerationRule', 'GenerationInfoByRule']):    # noqa # pylint: disable=C0301
-        for rule in generation_info.keys():
+        for rule in generation_info:
             self._generate_by_rule(
                 rule, package_strcuture, generation_info[rule])
 

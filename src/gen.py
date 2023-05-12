@@ -29,8 +29,8 @@ MOD_FILES_DIR: str = os.path.dirname(os.path.abspath(__file__))
 
 def make_bpy_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    all_files = glob.glob(INPUT_DIR + "/bpy*.rst")
-    excludes_files = glob.glob(INPUT_DIR + "/bpy_extras*.rst")
+    all_files = glob.glob(f"{INPUT_DIR}/bpy*.rst")
+    excludes_files = glob.glob(f"{INPUT_DIR}/bpy_extras*.rst")
     files = list(set(all_files) - set(excludes_files))
     mod_files = [
         f"{MOD_FILES_DIR}/mods/common/analyzer/bpy.json".replace("\\", "/"),
@@ -49,7 +49,7 @@ def make_bpy_rule(
 
 def make_bgl_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/bgl*.rst")
+    files = glob.glob(f"{INPUT_DIR}/bgl*.rst")
     mod_files = [
         f"{MOD_FILES_DIR}/mods/generated_mods/gen_bgl_modfile/bgl.json"
         .replace("\\", "/"),
@@ -60,14 +60,14 @@ def make_bgl_rule(
 
 def make_blf_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/blf*.rst")
+    files = glob.glob(f"{INPUT_DIR}/blf*.rst")
     return fbm.PackageGenerationRule(
         "blf", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_mathutils_rule(
         config: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/mathutils*.rst")
+    files = glob.glob(f"{INPUT_DIR}/mathutils*.rst")
     mod_files = [
         f"{MOD_FILES_DIR}/mods/common/analyzer/mathutils.json"
         .replace("\\", "/"),
@@ -86,14 +86,14 @@ def make_mathutils_rule(
 
 def make_gpu_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/gpu*.rst")
+    files = glob.glob(f"{INPUT_DIR}/gpu*.rst")
     return fbm.PackageGenerationRule(
         "gpu", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_gpu_extras_rule(
         config: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/gpu_extras*.rst")
+    files = glob.glob(f"{INPUT_DIR}/gpu_extras*.rst")
     mod_files = []
     if config.mod_version not in ["2.78", "2.79"]:
         mod_files.append(
@@ -106,7 +106,7 @@ def make_gpu_extras_rule(
 
 def make_freestyle_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/freestyle*.rst")
+    files = glob.glob(f"{INPUT_DIR}/freestyle*.rst")
     mod_files = [
         f"{MOD_FILES_DIR}/mods/common/analyzer/freestyle.json"
         .replace("\\", "/"),
@@ -118,7 +118,7 @@ def make_freestyle_rule(
 
 def make_bpy_extras_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/bpy_extras*.rst")
+    files = glob.glob(f"{INPUT_DIR}/bpy_extras*.rst")
     mod_files = [
         f"{MOD_FILES_DIR}/mods/generated_mods/gen_modules_modfile/"
         "bpy_extras.json".replace("\\", "/")
@@ -130,35 +130,35 @@ def make_bpy_extras_rule(
 
 def make_aud_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/aud*.rst")
+    files = glob.glob(f"{INPUT_DIR}/aud*.rst")
     return fbm.PackageGenerationRule(
         "aud", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_bmesh_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/bmesh*.rst")
+    files = glob.glob(f"{INPUT_DIR}/bmesh*.rst")
     return fbm.PackageGenerationRule(
         "bmesh", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_idprop_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/idprop*.rst")
+    files = glob.glob(f"{INPUT_DIR}/idprop*.rst")
     return fbm.PackageGenerationRule(
         "idprop", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_imbuf_rule(
         _: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/imbuf*.rst")
+    files = glob.glob(f"{INPUT_DIR}/imbuf*.rst")
     return fbm.PackageGenerationRule(
         "imbuf", files, fbm.BaseAnalyzer(), fbm.BaseGenerator())
 
 
 def make_bl_math_rule(
         config: 'fbm.PackageGeneratorConfig') -> 'fbm.PackageGenerationRule':
-    files = glob.glob(INPUT_DIR + "/bl_math*.rst")
+    files = glob.glob(f"{INPUT_DIR}/bl_math*.rst")
     mod_files = []
     if config.mod_version in ["2.90", "2.91", "2.92", "2.93"]:
         mod_files.append(

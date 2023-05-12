@@ -50,35 +50,32 @@ def generate_tests(config: ImportModuleTestConfig) -> list:
     # Generate test codes.
     tests_dir = f"{script_dir}/{GENERATED_TESTS_DIR}"
     os.makedirs(tests_dir, exist_ok=False)
-    init_file = open(f"{tests_dir}/__init__.py", "w",   # pylint: disable=R1732
-                     encoding="utf-8")
+    with open(f"{tests_dir}/__init__.py", "w",   # pylint: disable=R1732
+                     encoding="utf-8") as init_file:
+        def replace_template_content(
+                content: List[str], module_name: str) -> List[str]:
+            output = []
+            for line in content:
+                line = re.sub(
+                    r"<%% CLASS_NAME %%>",
+                    "{}ImportTest".format(  # pylint: disable=C0209
+                        re.sub(
+                            r"_(.)",
+                            lambda x: x.group(1).upper(),
+                            module_name.capitalize()
+                        )
+                    ),
+                    line)
+                line = re.sub(r"<%% MODULE_NAME %%>", module_name, line)
+                output.append(line)
+            return output
 
-    def replace_template_content(
-            content: List[str], module_name: str) -> List[str]:
-        output = []
-        for line in content:
-            line = re.sub(
-                r"<%% CLASS_NAME %%>",
-                "{}ImportTest".format(  # pylint: disable=C0209
-                    re.sub(
-                        r"_(.)",
-                        lambda x: x.group(1).upper(),
-                        module_name.capitalize()
-                    )
-                ),
-                line)
-            line = re.sub(r"<%% MODULE_NAME %%>", module_name, line)
-            output.append(line)
-        return output
-
-    for mod_name in module_names:
-        test_codes = replace_template_content(template_content, mod_name)
-        with open(f"{tests_dir}/{mod_name}_test.py", "w",
-                  encoding="utf-8") as f:
-            f.writelines(test_codes)
-        init_file.write(f"from . import {mod_name}_test\n")
-    init_file.close()
-
+        for mod_name in module_names:
+            test_codes = replace_template_content(template_content, mod_name)
+            with open(f"{tests_dir}/{mod_name}_test.py", "w",
+                      encoding="utf-8") as f:
+                f.writelines(test_codes)
+            init_file.write(f"from . import {mod_name}_test\n")
     # Load generated modules.
     # After this time, we can delete generated test codes.
     sys.path.append(os.path.dirname(__file__))
@@ -106,9 +103,7 @@ def run_tests(test_cases: list) -> bool:
     suite = unittest.TestSuite()
     for case in test_cases:
         suite.addTest(unittest.makeSuite(case))
-    ret = unittest.TextTestRunner().run(suite).wasSuccessful()
-
-    return ret
+    return unittest.TextTestRunner().run(suite).wasSuccessful()
 
 
 def main():
